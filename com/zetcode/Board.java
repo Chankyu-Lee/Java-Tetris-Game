@@ -1,22 +1,34 @@
 package com.zetcode;
 
-import com.zetcode.Shape.Tetrominoe;
-
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.Timer;
 import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+import javax.swing.Timer;
+
+import com.zetcode.Shape.Tetrominoe;
 
 public class Board extends JPanel {
 
     private final int BOARD_WIDTH = 10;
     private final int BOARD_HEIGHT = 22;
-    private final int PERIOD_INTERVAL = 300;
+    private int periodInterval = 500;
+    private int level = 1;
+    private int line = 10;
 
     private Timer timer;
     private boolean isFallingFinished = false;
@@ -24,7 +36,12 @@ public class Board extends JPanel {
     private int numLinesRemoved = 0;
     private int curX = 0;
     private int curY = 0;
+    private JLabel scorebar;
+    private JLabel levelbar;
+    private JLabel linebar;
     private JLabel statusbar;
+    private JPanel leftSidebar;
+    private JPanel rightSidebar;
     private Shape curPiece;
     private Tetrominoe[] board;
 
@@ -35,9 +52,78 @@ public class Board extends JPanel {
 
     private void initBoard(Tetris parent) {
 
+    	setBackground(Color.LIGHT_GRAY);
         setFocusable(true);
-        statusbar = parent.getStatusBar();
         addKeyListener(new TAdapter());
+        setFont(new Font("digital-7", Font.BOLD, 25));
+        
+        leftSidebar = new JPanel();
+        leftSidebar.setLayout(new GridBagLayout());
+    	
+        List<JLabel> list = new ArrayList<JLabel>();
+        
+    	levelbar = new JLabel(String.valueOf(level));
+    	list.add(new JLabel(String.valueOf("LEVEL")));
+    	list.add(levelbar);
+    	
+    	linebar = new JLabel(String.valueOf(line));
+    	list.add(new JLabel(String.valueOf("LINE")));
+    	list.add(linebar);
+    	
+    	scorebar = new JLabel(String.valueOf(numLinesRemoved));
+    	list.add(new JLabel(String.valueOf("SCORE")));
+    	list.add(scorebar);
+    	
+    	statusbar = new JLabel();
+    	statusbar.setPreferredSize(new Dimension(240, 50));
+    	list.add(statusbar);
+    	
+    	GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridheight = 1;
+        gbc.gridwidth = 1;
+        gbc.ipadx = 10;
+        gbc.ipady = -5;
+        gbc.weightx = 10;
+        gbc.weighty = 2;
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.NORTH;
+        
+    	boolean check = false;
+    	
+    	var iter = list.listIterator();
+    	int i = 0, j = 0;
+    	while (iter.hasNext()) {
+    		JLabel label = iter.next();
+    		label.setFont(getFont());
+    		
+    		label.setPreferredSize(new Dimension(60, 50));
+    		if (label == statusbar) {
+    			label.setPreferredSize(new Dimension(160, 50));
+    			gbc.gridwidth = 2;
+    			gbc.insets = new Insets(200, 10, 50, 10);
+    		}
+    		gbc.gridx = i;
+            gbc.gridy = j;
+            gbc.anchor = GridBagConstraints.NORTH;
+            leftSidebar.add(label, gbc);
+    		if (check) {
+    			label.setHorizontalAlignment(SwingConstants.RIGHT);
+    			label.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+    		}
+    		
+    		else label.setHorizontalAlignment(SwingConstants.LEFT);
+    		check = !check;
+    		
+    		if (i == 1) {
+    			j++;
+    			i = 0;
+    		} 
+    		else {
+    			i++;
+    		}
+    	}
+    	
+    	rightSidebar = new JPanel();
     }
 
     private int squareWidth() {
@@ -63,7 +149,7 @@ public class Board extends JPanel {
         clearBoard();
         newPiece();
 
-        timer = new Timer(PERIOD_INTERVAL, new GameCycle());
+        timer = new Timer(periodInterval, new GameCycle());
         timer.start();
     }
 
@@ -73,10 +159,10 @@ public class Board extends JPanel {
 
         if (isPaused) {
 
-            statusbar.setText("paused");
+            scorebar.setText("paused");
         } else {
 
-            statusbar.setText(String.valueOf(numLinesRemoved));
+            scorebar.setText(String.valueOf(numLinesRemoved));
         }
 
         repaint();
@@ -183,7 +269,7 @@ public class Board extends JPanel {
             curPiece.setShape(Tetrominoe.NoShape);
             timer.stop();
 
-            var msg = String.format("Game over. Score: %d", numLinesRemoved);
+            var msg = String.valueOf("Game over.");
             statusbar.setText(msg);
         }
     }
@@ -244,14 +330,34 @@ public class Board extends JPanel {
             }
         }
 
+        checkLineAndLevel(numFullLines);
+        
         if (numFullLines > 0) {
 
             numLinesRemoved += numFullLines;
 
-            statusbar.setText(String.valueOf(numLinesRemoved));
+            scorebar.setText(String.valueOf(numLinesRemoved));
             isFallingFinished = true;
             curPiece.setShape(Tetrominoe.NoShape);
         }
+    }
+    
+    private void checkLineAndLevel(int num) {
+    	
+    	line -= num;
+    	
+    	if (line <= 0) {
+    		level++;
+    		line += 5 + level * 5;
+    		
+    		if (periodInterval > 100) {
+    			periodInterval -= 50;
+    			timer.setDelay(periodInterval);
+    		}
+    	}
+    	
+    	levelbar.setText(String.valueOf(level));
+    	linebar.setText(String.valueOf(line));
     }
 
     private void drawSquare(Graphics g, int x, int y, Tetrominoe shape) {
@@ -277,6 +383,14 @@ public class Board extends JPanel {
         g.drawLine(x + squareWidth() - 1, y + squareHeight() - 1,
                 x + squareWidth() - 1, y + 1);
     }
+    
+    public JPanel getLeftSidebar() {
+    	return leftSidebar;
+    }
+    
+    public JPanel getRightSidebar() {
+		return rightSidebar;
+	}
 
     private class GameCycle implements ActionListener {
 

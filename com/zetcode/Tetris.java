@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.EventQueue;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 
 /*
 Java Tetris game clone
@@ -13,8 +14,6 @@ Website: https://zetcode.com
  */
 public class Tetris extends JFrame {
 
-    private JLabel statusbar;
-
     public Tetris() {
 
         initUI();
@@ -22,22 +21,21 @@ public class Tetris extends JFrame {
 
     private void initUI() {
 
-        statusbar = new JLabel(" 0");
-        add(statusbar, BorderLayout.SOUTH);
-
         var board = new Board(this);
-        add(board);
+        add(board, BorderLayout.CENTER);
+        
+        var leftSidebar = board.getLeftSidebar();
+        add(leftSidebar, BorderLayout.WEST);
+        
+        var rightSidebar = board.getRightSidebar();
+        add(rightSidebar, BorderLayout.EAST);
+        
         board.start();
 
         setTitle("Tetris");
-        setSize(200, 400);
+        setSize(500, 600);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
-    }
-
-    JLabel getStatusBar() {
-
-        return statusbar;
     }
 
     public static void main(String[] args) {
