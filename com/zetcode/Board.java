@@ -36,6 +36,8 @@ public class Board extends JPanel {
     private int numLinesRemoved = 0;
     private int curX = 0;
     private int curY = 0;
+    private int ghostBlockX = 0;
+    private int ghostBlockY = 0;
     private JLabel scorebar;
     private JLabel levelbar;
     private JLabel linebar;
@@ -159,10 +161,10 @@ public class Board extends JPanel {
 
         if (isPaused) {
 
-            scorebar.setText("paused");
+            statusbar.setText("paused");
         } else {
 
-            scorebar.setText(String.valueOf(numLinesRemoved));
+            statusbar.setText(String.valueOf(""));
         }
 
         repaint();
@@ -189,7 +191,7 @@ public class Board extends JPanel {
                 if (shape != Tetrominoe.NoShape) {
 
                     drawSquare(g, j * squareWidth(),
-                            boardTop + i * squareHeight(), shape);
+                            boardTop + i * squareHeight(), shape, false);
                 }
             }
         }
@@ -197,13 +199,20 @@ public class Board extends JPanel {
         if (curPiece.getShape() != Tetrominoe.NoShape) {
 
             for (int i = 0; i < 4; i++) {
-
+            	 
+                int gx = ghostBlockX + curPiece.x(i);
+                int gy = ghostBlockY - curPiece.y(i);
+                
+                drawSquare(g, gx * squareWidth(),
+                        boardTop + (BOARD_HEIGHT - gy - 1) * squareHeight(),
+                        curPiece.getShape(), true);
+                
                 int x = curX + curPiece.x(i);
                 int y = curY - curPiece.y(i);
 
                 drawSquare(g, x * squareWidth(),
                         boardTop + (BOARD_HEIGHT - y - 1) * squareHeight(),
-                        curPiece.getShape());
+                        curPiece.getShape(), false);
             }
         }
     }
@@ -263,6 +272,7 @@ public class Board extends JPanel {
         curPiece.setRandomShape();
         curX = BOARD_WIDTH / 2 + 1;
         curY = BOARD_HEIGHT - 1 + curPiece.minY();
+        findGhostBlock();
 
         if (!tryMove(curPiece, curX, curY)) {
 
@@ -295,6 +305,7 @@ public class Board extends JPanel {
         curPiece = newPiece;
         curX = newX;
         curY = newY;
+        findGhostBlock();
 
         repaint();
 
@@ -360,7 +371,7 @@ public class Board extends JPanel {
     	linebar.setText(String.valueOf(line));
     }
 
-    private void drawSquare(Graphics g, int x, int y, Tetrominoe shape) {
+    private void drawSquare(Graphics g, int x, int y, Tetrominoe shape, boolean isGhostBlock) {
 
         Color colors[] = {new Color(0, 0, 0), new Color(204, 102, 102),
                 new Color(102, 204, 102), new Color(102, 102, 204),
@@ -370,7 +381,12 @@ public class Board extends JPanel {
 
         var color = colors[shape.ordinal()];
 
-        g.setColor(color);
+        if (isGhostBlock) {
+        	g.setColor(color.brighter());
+        }
+        else {
+        	g.setColor(color);
+        }
         g.fillRect(x + 1, y + 1, squareWidth() - 2, squareHeight() - 2);
 
         g.setColor(color.brighter());
@@ -391,6 +407,43 @@ public class Board extends JPanel {
     public JPanel getRightSidebar() {
 		return rightSidebar;
 	}
+    
+    private void findGhostBlock() {
+    	ghostBlockX = curX;
+        ghostBlockY = curY;
+
+        while (true) {
+
+        	boolean check = true;
+        	
+        	for (int i = 0; i < 4; i++) {
+        		
+                int x = ghostBlockX + curPiece.x(i);
+                int y = ghostBlockY - curPiece.y(i);
+
+                if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT) {
+
+                    check = false;
+                    break;
+                }
+
+                if (shapeAt(x, y) != Tetrominoe.NoShape) {
+
+                    check = false;
+                    break;
+                }
+            }
+
+            if (!check) {
+
+            	ghostBlockY++;
+                break;
+            }
+
+            ghostBlockY--;
+        }
+        
+    }
 
     private class GameCycle implements ActionListener {
 
