@@ -7,11 +7,13 @@ import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -38,15 +40,23 @@ public class Board extends JPanel {
     private int curY = 0;
     private int ghostBlockX = 0;
     private int ghostBlockY = 0;
+    private int shapeIndex = 0;
     private JLabel scorebar;
     private JLabel levelbar;
     private JLabel linebar;
     private JLabel statusbar;
+    private JPanel nextBlock;
+    private JPanel holdBlock;
     private JPanel leftSidebar;
     private JPanel rightSidebar;
     private Shape curPiece;
+    private Shape nextPiece;
+    private Shape holdPiece;
+    private SubBoard holdBoard;
+    private SubBoard nextBoard;
     private Tetrominoe[] board;
-
+    private Tetrominoe[] shapeList;
+    
     public Board(Tetris parent) {
 
         initBoard(parent);
@@ -126,6 +136,15 @@ public class Board extends JPanel {
     	}
     	
     	rightSidebar = new JPanel();
+    	
+
+        nextPiece = new Shape();
+    	holdPiece = new Shape();
+        
+    	holdBoard = new SubBoard(holdPiece, String.valueOf("HOLD BLOCK"));
+    	nextBoard = new SubBoard(nextPiece, String.valueOf("NEXT BLOCK"));
+    	rightSidebar.add(holdBoard);
+    	rightSidebar.add(nextBoard);
     }
 
     private int squareWidth() {
@@ -146,6 +165,9 @@ public class Board extends JPanel {
     void start() {
 
         curPiece = new Shape();
+        nextPiece.setRandomShape();
+        shapeIndex = 7;
+        
         board = new Tetrominoe[BOARD_WIDTH * BOARD_HEIGHT];
 
         clearBoard();
@@ -174,7 +196,10 @@ public class Board extends JPanel {
     public void paintComponent(Graphics g) {
 
         super.paintComponent(g);
+        holdBoard.repaint();
+    	rightSidebar.repaint();
         doDrawing(g);
+        
     }
 
     private void doDrawing(Graphics g) {
@@ -269,7 +294,15 @@ public class Board extends JPanel {
 
     private void newPiece() {
 
-        curPiece.setRandomShape();
+
+    	if (shapeIndex == 7) {
+        	shapeList = curPiece.getRandomShapeList();
+        	shapeIndex = 0;
+        }
+        
+        curPiece.setShape(nextPiece.getShape());
+        nextPiece.setShape(shapeList[shapeIndex++]);
+        
         curX = BOARD_WIDTH / 2 + 1;
         curY = BOARD_HEIGHT - 1 + curPiece.minY();
         findGhostBlock();
@@ -502,4 +535,126 @@ public class Board extends JPanel {
             }
         }
     }
+    
+    class SubBoard extends JPanel {
+    	private Shape piece;
+    	private JLabel subBoardName;
+    	
+    	public SubBoard(Shape piece, String str) {
+
+    		piece.setShape(Shape.Tetrominoe.NoShape);
+    		this.piece = piece;
+    		
+    		this.setPreferredSize(new Dimension(120, 150));
+        	this.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+        	this.setLayout(null);
+        	
+        	subBoardName = new JLabel(str);
+        	subBoardName.setBounds(60 - str.length()/2*7, 120, 120, 30);
+        	this.add(subBoardName);
+		}
+    	
+    	@Override
+    	public void paintComponent(Graphics g) {
+    		super.paintComponent(g);
+    		
+    		g.drawRect(0, 120, 120, 30);
+            doDrawing(g);
+    	}
+    	
+    	
+    	private void doDrawing(Graphics g) {
+    		
+            Point mid = piece.getMiddlePoint();
+            int piecex = mid.x;
+            int piecey = mid.y;
+            
+            if (piece.getShape() != Tetrominoe.NoShape) {
+            	
+            	for (int i = 0; i < 4; i++) {
+            		
+            		int x = piecex + 30*piece.x(i);
+            		int y = piecey + 30*piece.y(i);
+                    
+                    drawSquare(g, x, y, piece.getShape(), false);
+            	}
+            }
+            
+    	}
+    	private int squareWidth() { return 30;}
+    	private int squareHeight() { return 30;}
+    	
+    	
+    	private void drawSquare(Graphics g, int x, int y, Tetrominoe shape, boolean isGhostBlock) {
+
+    		
+            Color colors[] = {new Color(0, 0, 0), new Color(204, 102, 102),
+                    new Color(102, 204, 102), new Color(102, 102, 204),
+                    new Color(204, 204, 102), new Color(204, 102, 204),
+                    new Color(102, 204, 204), new Color(218, 170, 0)
+            };
+
+            var color = colors[shape.ordinal()];
+
+            if (isGhostBlock) {
+            	g.setColor(color.brighter());
+            }
+            else {
+            	g.setColor(color);
+            }
+            g.fillRect(x + 1, y + 1, squareWidth() - 2, squareHeight() - 2);
+
+            g.setColor(color.brighter());
+            g.drawLine(x, y + squareHeight() - 1, x, y);
+            g.drawLine(x, y, x + squareWidth() - 1, y);
+
+            g.setColor(color.darker());
+            g.drawLine(x + 1, y + squareHeight() - 1,
+                    x + squareWidth() - 1, y + squareHeight() - 1);
+            g.drawLine(x + squareWidth() - 1, y + squareHeight() - 1,
+                    x + squareWidth() - 1, y + 1);
+                    
+    		 
+    	}
+    	
+    	private void setPiece(Shape piece) {
+			this.piece = piece;
+		}
+		
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

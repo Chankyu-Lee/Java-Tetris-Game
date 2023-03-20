@@ -1,5 +1,9 @@
 package com.zetcode;
 
+import java.awt.Point;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class Shape {
@@ -61,6 +65,21 @@ public class Shape {
 
         Tetrominoe[] values = Tetrominoe.values();
         setShape(values[x]);
+    }
+    
+    public Tetrominoe[] getRandomShapeList() {
+    	var r = new Random();
+    	List<Tetrominoe> shapeList = new ArrayList<Shape.Tetrominoe>(Arrays.asList(Tetrominoe.values()));
+    	shapeList.remove(0);
+    	
+    	Tetrominoe[] randomShapeList = new Tetrominoe[7];
+    	for (int i = 7; i > 0; i--) {
+    		int x = Math.abs(r.nextInt()) % i;
+
+    		randomShapeList[i-1] = shapeList.remove(x);
+    	}
+    	
+        return randomShapeList;
     }
 
     public int minX() {
@@ -124,6 +143,20 @@ public class Shape {
         }
 
         return result;
+    }
+    
+    public Point getMiddlePoint() {
+    	switch (pieceShape) {
+		case ZShape : return new Point(60, 45);
+		case SShape : return new Point(30 , 45);
+		case LineShape : return new Point(45, 30);
+		case TShape : return new Point(45, 30);
+		case SquareShape : return new Point(30, 30);
+		case LShape : return new Point(60, 45);
+		case MirroredLShape : return new Point(30, 45);
+		case NoShape :
+		default : return new Point(0,0);
+		}
     }
 }
 
