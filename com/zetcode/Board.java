@@ -35,6 +35,7 @@ public class Board extends JPanel {
     private Timer timer;
     private boolean isFallingFinished = false;
     private boolean isPaused = false;
+    private boolean isHeld = false;
     private int numLinesRemoved = 0;
     private int curX = 0;
     private int curY = 0;
@@ -45,8 +46,6 @@ public class Board extends JPanel {
     private JLabel levelbar;
     private JLabel linebar;
     private JLabel statusbar;
-    private JPanel nextBlock;
-    private JPanel holdBlock;
     private JPanel leftSidebar;
     private JPanel rightSidebar;
     private Shape curPiece;
@@ -136,15 +135,16 @@ public class Board extends JPanel {
     	}
     	
     	rightSidebar = new JPanel();
-    	
 
         nextPiece = new Shape();
     	holdPiece = new Shape();
-        
-    	holdBoard = new SubBoard(holdPiece, String.valueOf("HOLD BLOCK"));
+
     	nextBoard = new SubBoard(nextPiece, String.valueOf("NEXT BLOCK"));
-    	rightSidebar.add(holdBoard);
+    	holdBoard = new SubBoard(holdPiece, String.valueOf("HOLD BLOCK"));
+    	
     	rightSidebar.add(nextBoard);
+    	rightSidebar.add(holdBoard);
+    	
     }
 
     private int squareWidth() {
@@ -285,6 +285,7 @@ public class Board extends JPanel {
         }
 
         removeFullLines();
+        isHeld = false;
 
         if (!isFallingFinished) {
 
@@ -477,6 +478,34 @@ public class Board extends JPanel {
         }
         
     }
+    
+    private void holdPiece() {
+    	
+    	if (isHeld) {
+    		return;
+    	}
+    	else {
+    		isHeld = true;
+    	}
+    	
+    	if (holdPiece.getShape() == Tetrominoe.NoShape) {
+    		holdPiece.setShape(curPiece.getShape());
+    		newPiece();
+    		return;
+    	}
+    	
+    	Tetrominoe temp;
+    	temp = curPiece.getShape();
+    	curPiece.setShape(holdPiece.getShape());
+    	holdPiece.setShape(temp);
+    	moveTop();
+    }
+    
+    private void moveTop() {
+    	curX = BOARD_WIDTH / 2 + 1;
+        curY = BOARD_HEIGHT - 1 + curPiece.minY();
+        findGhostBlock();
+    }
 
     private class GameCycle implements ActionListener {
 
@@ -522,6 +551,8 @@ public class Board extends JPanel {
 
             int keycode = e.getKeyCode();
 
+            if (isPaused && keycode != KeyEvent.VK_P) return;
+            
             // Java 12 switch expressions
             switch (keycode) {
 
@@ -532,6 +563,7 @@ public class Board extends JPanel {
                 case KeyEvent.VK_UP -> tryMove(curPiece.rotateLeft(), curX, curY);
                 case KeyEvent.VK_SPACE -> dropDown();
                 case KeyEvent.VK_D -> oneLineDown();
+                case KeyEvent.VK_Q -> holdPiece();
             }
         }
     }
