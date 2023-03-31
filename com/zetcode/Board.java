@@ -13,12 +13,15 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
 
@@ -31,12 +34,18 @@ public class Board extends JPanel {
     private int periodInterval = 500;
     private int level = 1;
     private int line = 10;
+    private int dropCount = 0;
+    private int comboCount = -1;
 
     private Timer timer;
+    private Timer statusbarBlankTimer;
     private boolean isFallingFinished = false;
     private boolean isPaused = false;
     private boolean isHeld = false;
-    private int numLinesRemoved = 0;
+    private boolean isTSpin = false;
+    private boolean isStart = false;
+    private boolean isb2b = false;
+    private int score = 0;
     private int curX = 0;
     private int curY = 0;
     private int ghostBlockX = 0;
@@ -48,6 +57,7 @@ public class Board extends JPanel {
     private JLabel statusbar;
     private JPanel leftSidebar;
     private JPanel rightSidebar;
+    private JTextArea textArea;
     private Shape curPiece;
     private Shape nextPiece;
     private Shape holdPiece;
@@ -55,6 +65,8 @@ public class Board extends JPanel {
     private SubBoard nextBoard;
     private Tetrominoe[] board;
     private Tetrominoe[] shapeList;
+    private Sound sound;
+    private String log;
     
     public Board(Tetris parent) {
 
@@ -81,12 +93,13 @@ public class Board extends JPanel {
     	list.add(new JLabel(String.valueOf("LINE")));
     	list.add(linebar);
     	
-    	scorebar = new JLabel(String.valueOf(numLinesRemoved));
+    	scorebar = new JLabel(String.valueOf(score));
     	list.add(new JLabel(String.valueOf("SCORE")));
     	list.add(scorebar);
     	
     	statusbar = new JLabel();
-    	statusbar.setPreferredSize(new Dimension(240, 50));
+    	statusbar.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+
     	list.add(statusbar);
     	
     	GridBagConstraints gbc = new GridBagConstraints();
@@ -107,9 +120,9 @@ public class Board extends JPanel {
     		JLabel label = iter.next();
     		label.setFont(getFont());
     		
-    		label.setPreferredSize(new Dimension(60, 50));
+    		label.setPreferredSize(new Dimension(100, 50));
     		if (label == statusbar) {
-    			label.setPreferredSize(new Dimension(160, 50));
+    			label.setPreferredSize(new Dimension(260, 50));
     			gbc.gridwidth = 2;
     			gbc.insets = new Insets(200, 10, 50, 10);
     		}
@@ -135,16 +148,39 @@ public class Board extends JPanel {
     	}
     	
     	rightSidebar = new JPanel();
-
+    	rightSidebar.setLayout(new BoxLayout(rightSidebar, BoxLayout.Y_AXIS));
+    	
         nextPiece = new Shape();
     	holdPiece = new Shape();
 
     	nextBoard = new SubBoard(nextPiece, String.valueOf("NEXT BLOCK"));
     	holdBoard = new SubBoard(holdPiece, String.valueOf("HOLD BLOCK"));
     	
-    	rightSidebar.add(nextBoard);
-    	rightSidebar.add(holdBoard);
+    	JPanel tempPanel = new JPanel();
+    	tempPanel.add(nextBoard);
+    	tempPanel.add(holdBoard);
+    	rightSidebar.add(tempPanel);
+    	//rightSidebar.add(holdBoard);
     	
+        textArea = new JTextArea(10, 20);
+        textArea.setEditable(false);
+        textArea.setLineWrap(true);
+        textArea.setWrapStyleWord(true);
+        log = new String(String.valueOf(""));
+        textArea.setText(log);
+
+    	JScrollPane scrollPane = new JScrollPane(textArea);
+    	rightSidebar.add(scrollPane);
+    	
+    	sound = new Sound();
+    	
+    	statusbarBlankTimer = new Timer(1500, new ActionListener() {
+    		
+    	    @Override
+    	    public void actionPerformed(ActionEvent e) {
+    	        statusbar.setText("");
+    	    }
+    	});
     }
 
     private int squareWidth() {
@@ -163,7 +199,9 @@ public class Board extends JPanel {
     }
 
     void start() {
-
+    	
+    	timer = new Timer(periodInterval, new GameCycle());
+   
         curPiece = new Shape();
         nextPiece.setRandomShape();
         shapeIndex = 7;
@@ -172,9 +210,31 @@ public class Board extends JPanel {
 
         clearBoard();
         newPiece();
+    	
+    	sound.playSound(sound.getSfxFile("GameStart"), 0.5f, false);
+    	
+    	Timer t = new Timer(770, new ActionListener() {
+    	    int count = 3;
+    	    @Override
+    	    public void actionPerformed(ActionEvent e) {
+    	        if (count == 0) {
+    	            ((Timer)e.getSource()).stop();
+    	            statusbar.setText("Go!");
 
-        timer = new Timer(periodInterval, new GameCycle());
-        timer.start();
+    	            // 게임 시작
+    	        	timer.start();
+    	        	statusbarBlankTimer.start();
+    	            isStart = true;
+    	        	sound.playBgm(0.5f, false);
+    	            return;
+    	        }
+    	        statusbar.setText(Integer.toString(count) + String.valueOf("..."));
+    	        count--;
+    	    }
+    	});
+    	
+    	t.setInitialDelay(0);
+    	t.start();
     }
 
     private void pause() {
@@ -256,6 +316,7 @@ public class Board extends JPanel {
             newY--;
         }
 
+        dropCount = 3;
         pieceDropped();
     }
 
@@ -276,6 +337,14 @@ public class Board extends JPanel {
     }
 
     private void pieceDropped() {
+    	
+    	if (dropCount < 3) {
+    		dropCount++;
+    		return;
+    	}
+    	else {
+    		dropCount = 0;
+    	}
 
         for (int i = 0; i < 4; i++) {
 
@@ -284,7 +353,7 @@ public class Board extends JPanel {
             board[(y * BOARD_WIDTH) + x] = curPiece.getShape();
         }
 
-        removeFullLines();
+        log(removeFullLines());
         isHeld = false;
 
         if (!isFallingFinished) {
@@ -294,7 +363,6 @@ public class Board extends JPanel {
     }
 
     private void newPiece() {
-
 
     	if (shapeIndex == 7) {
         	shapeList = curPiece.getRandomShapeList();
@@ -340,13 +408,14 @@ public class Board extends JPanel {
         curX = newX;
         curY = newY;
         findGhostBlock();
+        isTSpin = false;
 
         repaint();
 
         return true;
     }
 
-    private void removeFullLines() {
+    private int removeFullLines() {
 
         int numFullLines = 0;
 
@@ -379,12 +448,15 @@ public class Board extends JPanel {
         
         if (numFullLines > 0) {
 
-            numLinesRemoved += numFullLines;
-
-            scorebar.setText(String.valueOf(numLinesRemoved));
+            comboCount++;
             isFallingFinished = true;
             curPiece.setShape(Tetrominoe.NoShape);
         }
+        else {
+        	comboCount = -1;
+        }
+        
+        return numFullLines;
     }
     
     private void checkLineAndLevel(int num) {
@@ -399,6 +471,9 @@ public class Board extends JPanel {
     			periodInterval -= 50;
     			timer.setDelay(periodInterval);
     		}
+    		
+    		setStatusbarText("level up!");
+    		sound.playSound(sound.sfxList.get("Levelup"), 0.5f, false);
     	}
     	
     	levelbar.setText(String.valueOf(level));
@@ -499,12 +574,200 @@ public class Board extends JPanel {
     	curPiece.setShape(holdPiece.getShape());
     	holdPiece.setShape(temp);
     	moveTop();
+    	sound.playSound(sound.sfxList.get("Hold"), 0.5f, false);
     }
     
     private void moveTop() {
     	curX = BOARD_WIDTH / 2 + 1;
         curY = BOARD_HEIGHT - 1 + curPiece.minY();
         findGhostBlock();
+    }
+    
+    private boolean isTSpin() {
+    	int count = 0;
+    	
+    	for (int i = 0; i < 2; i++) {
+    		for (int j = 0; j < 2; j++) {
+    			int x = i == 0 ? curX-1 : curX+1;
+    			int y = j == 0 ? curY-1 : curY+1;
+    			
+    			if (board[(y * BOARD_WIDTH) + x] != Tetrominoe.NoShape) count++;
+    		}
+    	}
+    	
+    	return count >= 3;
+    }
+    
+    private void log(int numOfFullLine) {
+
+    	int currentScore = 0;
+    	String currentString = "";
+    	String currentLog = "";
+    	String currentSfxString = "";
+    	boolean doubleScore = false;
+    	
+    	if (isTSpin && numOfFullLine >= 1 || numOfFullLine == 4) {
+    		
+    		if (isb2b) {
+    			currentString += "b2b ";
+    			currentLog += "백투백 ";
+    			doubleScore = true;
+    		}
+    		else {
+    			isb2b = true;
+    		}
+    	}
+    	
+    	if (isTSpin) {
+  
+    		isTSpin = false;  		
+    		if (numOfFullLine == 0) {
+    			currentScore += 2;
+    			currentString += "T-Spin";
+    			currentLog += "티스핀";
+    			currentSfxString = "Tspin";
+    		}
+    		else if (numOfFullLine == 1) {
+    			currentScore += 6;
+    			currentString += "T-Spin Single";
+    			currentLog += "티스핀 싱글";
+    			if (!doubleScore) {
+    				currentSfxString = "TspinSingle";
+    			}
+    			else {
+    				currentSfxString = "b2bTspinSingle";
+    			}
+    		}
+    		else if (numOfFullLine == 2) {
+    			currentScore += 10;
+    			currentString += "T-Spin Double";
+    			currentLog += "티스핀 더블";
+    			if (!doubleScore) {
+    				currentSfxString = "TspinDouble";
+    			}
+    			else {
+    				currentSfxString = "b2bTspinDouble";
+    			}
+    		}
+    		else if (numOfFullLine == 3) {
+    			currentScore += 15;
+    			currentString += "T-Spin Triple";
+    			currentLog += "티스핀 트리플";
+    			if (!doubleScore) {
+    				currentSfxString = "TspinTriple";
+    			}
+    			else {
+    				currentSfxString = "b2bTspinTriple";
+    			}
+    		}
+    	}
+    	else if (numOfFullLine == 1) {
+    		currentScore += 1;
+    	}
+    	else if (numOfFullLine == 2) {
+    		currentScore += 3;
+			currentString += "Double";
+			currentLog += "더블";
+    	}
+    	else if (numOfFullLine == 3) {
+    		currentScore += 6;
+			currentString += "Triple";
+			currentLog += "트리플";
+    	}
+    	else if (numOfFullLine == 4) {
+    		currentScore += 10;
+			currentString += "Tetris";
+			currentLog += "테트리스";
+			if (!doubleScore) {
+				currentSfxString = "Tetris";
+			}
+			else {
+				currentSfxString = "b2bTetris";
+			}
+    	}
+    	
+    	if (comboCount >= 9) {
+    		currentScore += 16;
+    		if (currentSfxString.equals("")) {
+    			currentSfxString = "Combo8";
+    		}
+    	}
+    	else if (comboCount >= 8) {
+    		currentScore += 8;
+    		if (currentSfxString.equals("")) {
+    			currentSfxString = "Combo8";
+    		}
+    	}
+    	else if (comboCount >= 7) {
+    		currentScore += 8;
+    		if (currentSfxString.equals("")) {
+    			if (comboCount == 7) {
+    				currentSfxString = "Combo7";
+    			}
+    			else {
+    				currentSfxString = "Combo6";
+    			}
+    		}
+    	}
+    	else if (comboCount >= 5) {
+    		currentScore += 4;
+    		if (currentSfxString.equals("")) {
+    			if (comboCount == 5) {
+    				currentSfxString = "Combo5";
+    			}
+    			else {
+    				currentSfxString = "Combo4";
+    			}
+    		}
+    	}
+    	else if (comboCount >= 3) {
+    		currentScore += 2;
+    		if (currentSfxString.equals("")) {
+    			if (comboCount == 3) {
+    				currentSfxString = "Combo3";
+    			}
+    			else {
+    				currentSfxString = "Combo2";
+    			}
+    		}
+    	}
+    	else if (comboCount >= 1) {
+    		currentScore += 1;
+    		currentSfxString = "Combo1";
+    	}
+    	
+    	if (comboCount >= 1) {
+    		if (currentLog.equals("")) {
+    			currentLog = comboCount + "콤보";
+    		}
+    		else {
+    			currentLog = "(" + comboCount + "콤보) " + currentLog;
+    		}
+    	}
+    	
+    	if (doubleScore) {
+    		currentScore *= 2;
+    	}
+    	
+    	if (!currentLog.equals("")) {
+    		log += currentLog + " (" + currentScore + "점)" + '\n';
+    	}
+    	score += currentScore;
+    	setStatusbarText(currentString);
+    	textArea.setText(log);
+    	scorebar.setText(String.valueOf(score));
+    	
+    	if (!currentSfxString.equals("")) {
+    		sound.playSound(sound.sfxList.get(currentSfxString), 0.5f, false);
+    	}
+    }
+    
+    private void setStatusbarText(String str) {
+    	
+    	statusbar.setText(str);
+    	
+    	statusbarBlankTimer.stop();
+    	statusbarBlankTimer.start();
     }
 
     private class GameCycle implements ActionListener {
@@ -544,6 +807,11 @@ public class Board extends JPanel {
         @Override
         public void keyPressed(KeyEvent e) {
 
+        	if (!isStart) {
+        		
+        		return;
+        	}
+        	
             if (curPiece.getShape() == Tetrominoe.NoShape) {
 
                 return;
@@ -557,11 +825,52 @@ public class Board extends JPanel {
             switch (keycode) {
 
                 case KeyEvent.VK_P -> pause();
-                case KeyEvent.VK_LEFT -> tryMove(curPiece, curX - 1, curY);
-                case KeyEvent.VK_RIGHT -> tryMove(curPiece, curX + 1, curY);
-                case KeyEvent.VK_DOWN -> tryMove(curPiece.rotateRight(), curX, curY);
-                case KeyEvent.VK_UP -> tryMove(curPiece.rotateLeft(), curX, curY);
-                case KeyEvent.VK_SPACE -> dropDown();
+                case KeyEvent.VK_LEFT -> {
+                	if (tryMove(curPiece, curX - 1, curY)) {
+                		sound.playSound(sound.sfxList.get("Move"), 0.5f, false);
+                	} 
+                	else {
+                		sound.playSound(sound.sfxList.get("MoveFail"), 0.5f, false);
+                	}
+                }
+                case KeyEvent.VK_RIGHT -> {
+                	if (tryMove(curPiece, curX + 1, curY)) {
+                		sound.playSound(sound.sfxList.get("Move"), 0.5f, false);
+                	}
+                	else {
+                		sound.playSound(sound.sfxList.get("MoveFail"), 0.5f, false);
+                	}
+                }
+                case KeyEvent.VK_DOWN -> {
+                	boolean check = tryMove(curPiece.rotateRight(), curX, curY);
+                	if (check) {
+                		sound.playSound(sound.sfxList.get("Rotate"), 0.5f, false);
+                	}
+                	else {
+                		sound.playSound(sound.sfxList.get("RotateFail"), 0.5f, false);
+                	}
+                	
+                	if (check && curPiece.getShape() == Tetrominoe.TShape) {
+                		isTSpin = isTSpin();
+                	}
+                }
+                case KeyEvent.VK_UP -> {
+                	boolean check = tryMove(curPiece.rotateLeft(), curX, curY);
+                	if (check) {
+                		sound.playSound(sound.sfxList.get("Rotate"), 0.5f, false);
+                	}
+                	else {
+                		sound.playSound(sound.sfxList.get("RotateFail"), 0.5f, false);
+                	}
+                	
+                	if (check && curPiece.getShape() == Tetrominoe.TShape) {
+                		isTSpin = isTSpin();
+                	}
+                }
+                case KeyEvent.VK_SPACE -> {
+                	dropDown();
+                	sound.playSound(sound.sfxList.get("LockDown"), 0.5f, false);
+                }
                 case KeyEvent.VK_D -> oneLineDown();
                 case KeyEvent.VK_Q -> holdPiece();
             }

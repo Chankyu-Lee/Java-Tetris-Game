@@ -29,13 +29,14 @@ public class Tetris extends JFrame {
         
         var rightSidebar = board.getRightSidebar();
         add(rightSidebar, BorderLayout.EAST);
-        
-        board.start();
 
         setTitle("Tetris");
-        setSize(800, 800);
+        setSize(900, 800);
+        setResizable(false);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+        
+        board.start();
     }
 
     public static void main(String[] args) {
