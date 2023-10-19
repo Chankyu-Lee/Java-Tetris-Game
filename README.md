@@ -21,3 +21,4 @@ https://zetcode.com/javagames/tetris/
 2. Item 기능 추가
 3. Block 회전 기능 보강 (벽이나 블록에 인접해서 회전 시 회전 가능한 곳으로 블록 위치 조정하여 회전하는 기능)
 
+![New Tetris Game Screenshot](new_tetris_game.png)
